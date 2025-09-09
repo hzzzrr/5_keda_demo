@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: netvue-admin-worker-namespace
+  name: corp_name-admin-worker-namespace
 ---
 ## we will use azure workload identity to authenticate to azure monitor workspace
 ## this is a suggested approach by keda team
@@ -11,7 +11,7 @@ apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
   name: azure-monitor-workspace-auth
-  namespace: netvue-admin-worker-namespace
+  namespace: corp_name-admin-worker-namespace
 spec:
   podIdentity:
     provider: azure-workload  

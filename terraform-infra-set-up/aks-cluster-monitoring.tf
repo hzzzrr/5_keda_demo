@@ -3,13 +3,13 @@ data "azurerm_client_config" "current" {}
 
 # create resource group for monitoring in primary region
 resource "azurerm_resource_group" "monitoring" {
-  name = "netvue-monitoring"
+  name = "corp_name-monitoring"
   location = var.primary_region
 }
 
 # create managed prometheus and grafana in primary region only
 resource "azurerm_monitor_workspace" "prometheus" {
-  name                = "netvue-prometheus-prod"
+  name                = "corp_name-prometheus-prod"
   resource_group_name = azurerm_resource_group.monitoring.name
   location            = azurerm_resource_group.monitoring.location
 

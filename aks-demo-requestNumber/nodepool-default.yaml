@@ -12,7 +12,7 @@ spec:
     metadata:
       labels:
         kubernetes.azure.com/ebpf-dataplane: cilium
-        nodepool/netvue: "default"
+        nodepool/corp_name: "default"
     spec:
       expireAfter: Never
       nodeClassRef:

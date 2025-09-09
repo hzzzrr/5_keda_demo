@@ -29,7 +29,7 @@ spec:
     metadata:
       labels:
         kubernetes.azure.com/ebpf-dataplane: cilium
-        nodepool/netvue: "gpu-t4"
+        nodepool/corp_name: "gpu-t4"
     spec:
       expireAfter: Never
       nodeClassRef:

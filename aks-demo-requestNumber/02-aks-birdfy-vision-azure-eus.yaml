@@ -39,7 +39,7 @@ spec:
                     values:
                       - "1"
       nodeSelector:
-        nodepool/netvue: "gpu-t4"
+        nodepool/corp_name: "gpu-t4"
       tolerations:
         - key: "kubernetes.azure.com/scalesetpriority"
           operator: "Equal"
@@ -167,7 +167,7 @@ spec:
   - type: prometheus
     metricType: AverageValue                                # 使用average value 来计算ingress request 总数/deployment pod 的平均值
     metadata:
-      serverAddress: https://netvue-prometheus-prod-c8gvhkcsdsdbhdf2.eastus2.prometheus.monitor.azure.com
+      serverAddress: https://corp_name-prometheus-prod-c8gvhkcsdsdbhdf2.eastus2.prometheus.monitor.azure.com
       threshold: '2'
       #activationThreshold: "0"
       query: sum(rate(nginx_ingress_controller_requests{ingress="birdfy-vision-ingress",namespace="birdfy-vision-namespace"}[2m]))      

@@ -4,7 +4,7 @@ locals {
     default_node_pool_vm_size = "standard_d4ads_v6"
     agent_node_pool_node_count = 1
     agent_node_pool_vm_size = "standard_d4ads_v6"
-    # container_registry_id = "/subscriptions/f411b60c-50d5-4fed-aea5-3d3f33f00a3f/resourceGroups/netvue-iac-prod/providers/Microsoft.ContainerRegistry/registries/netvuedockerprod"
+    # container_registry_id = "/subscriptions/f411b60c-50d5-4fed-aea5-3d3f33f00a3f/resourceGroups/corp_name-iac-prod/providers/Microsoft.ContainerRegistry/registries/corp_namedockerprod"
   }
 }
 

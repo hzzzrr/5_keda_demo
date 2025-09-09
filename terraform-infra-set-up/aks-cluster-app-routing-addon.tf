@@ -103,7 +103,7 @@ resource "azurerm_role_assignment" "web_app_routing_network_contributor" {
 # manual import dashboard using below command 
 # #######
 
-# az grafana dashboard import -n zr-test -g netvue-monitoring --definition 16677 --overwrite true
-# az grafana dashboard import -n zr-test -g netvue-monitoring --definition 21336 --overwrite true
+# az grafana dashboard import -n zr-test -g corp_name-monitoring --definition 16677 --overwrite true
+# az grafana dashboard import -n zr-test -g corp_name-monitoring --definition 21336 --overwrite true
 
 

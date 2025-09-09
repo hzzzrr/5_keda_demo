@@ -26,7 +26,7 @@ spec:
 #        kubernetes.azure.com/agentpool: agenteus
       containers:
         - name: cvr-record
-          image: netvuedockerprod.azurecr.io/cvr-record:0.0.3
+          image: corp_namedockerprod.azurecr.io/cvr-record:0.0.3
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod-azureuse2"

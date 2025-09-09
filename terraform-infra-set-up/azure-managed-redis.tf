@@ -7,7 +7,7 @@ locals {
 
 # create resource group for all private dns zone
 resource "azurerm_resource_group" "private_dns_zone_rg" {
-  name     = "netvue-private-dns-zone"
+  name     = "corp-private-dns-zone"
   location = var.primary_region
 }
 

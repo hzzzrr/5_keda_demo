@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cvr-record
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cvr-record-java-deployment
+  namespace: cvr-record
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cvr-record-java
+  template:
+    metadata:
+      name: cvr-record-java
+      labels:
+        app: cvr-record-java
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: workload-identity
+      nodeSelector:
+        karpenter: default
+#        kubernetes.azure.com/agentpool: agenteus
+      containers:
+        - name: cvr-record
+          image: netvuedockerprod.azurecr.io/cvr-record:0.0.3
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod-azureuse2"
+          resources:        # 将resources放到container里
+            requests:
+              cpu: 1
+              memory: 2Gi
+            limits:
+              cpu: 1
+              memory: 2Gi

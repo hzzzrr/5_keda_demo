@@ -1,0 +1,352 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: birdfy-vision-namespace
+---
+# StatefulSet for Birdfy Vision
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: birdfy-vision
+  namespace: birdfy-vision-namespace
+  labels:
+    app: birdfy-vision
+spec:
+  serviceName: birdfy-vision
+  replicas: 1
+  selector:
+    matchLabels:
+      app: birdfy-vision
+  template:
+    metadata:
+      labels:
+        app: birdfy-vision
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: workload-identity
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: karpenter.azure.com/sku-gpu-name
+                    operator: In
+                    values:
+                      - "T4"
+                  - key: karpenter.azure.com/sku-gpu-count
+                    operator: In
+                    values:
+                      - "1"
+      nodeSelector:
+        nodepool/netvue: "gpu-t4"
+      tolerations:
+        - key: "kubernetes.azure.com/scalesetpriority"
+          operator: "Equal"
+          value: "spot"
+          effect: "NoSchedule"
+      initContainers:
+        - name: model-downloader
+          image:  acr4vllmkeda.azurecr.io/tools/model-azcopy:v5
+          imagePullPolicy: Always
+          args:
+          - "https://4stshared.blob.core.windows.net/qwen-docker-builds/qwen25-3b/"
+          - "/opt/ml/model/qwen25-3b/"
+          volumeMounts:
+            - name: model-storage
+              mountPath: /opt/ml/model
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.9.1
+          imagePullPolicy: Always
+          command: ["/bin/bash"]
+          args:
+            - "-c"
+            - |
+              vllm serve \
+                /opt/ml/model/qwen25-3b \
+                --port 8080 \
+                --dtype float16 \
+                --gpu-memory-utilization 0.97 \
+                --served-model-name birdfy-vision \
+                --trust-remote-code \
+                --max-model-len 32768 \
+                --max-num-seqs 8 \
+                --swap-space 0 \
+                --tensor-parallel-size 1 \
+                --disable-log-stats \
+                --disable-log-requests
+          env:
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            - name: VLLM_ENABLE_LAZY_INIT
+              value: "false"
+            - name: VLLM_CONFIGURE_LOGGING
+              value: "0"
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              cpu: "4"
+            requests:
+              nvidia.com/gpu: "1"
+              cpu: "3"
+          volumeMounts:
+            - name: model-storage
+              mountPath: /opt/ml/model
+          ports:
+            - containerPort: 8080
+              name: http
+  volumeClaimTemplates:
+    - metadata:
+        name: model-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: managed-premium
+        resources:
+          requests:
+            storage: 64Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: birdfy-vision
+  namespace: birdfy-vision-namespace
+spec:
+  selector:
+    app: birdfy-vision
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "birdfy-vision-ingress"
+  namespace: "birdfy-vision-namespace"
+spec:
+  # modify - to public
+  ingressClassName: nginx-public
+  rules:
+    - host: "demo.ingress.zzzdev666.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: "birdfy-vision"
+                port:
+                  number: 8080
+---
+# create keda scaleing object for webapp-hostinfo
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: birdfy-vision-scaledobject
+  namespace: birdfy-vision-namespace
+  annotations:
+    #autoscaling.keda.sh/paused: "true"                      # Optional. Use to pause autoscaling of objects explicitly
+spec:
+  scaleTargetRef:
+    apiVersion:    apps/v1
+    kind:          StatefulSet
+    name:          birdfy-vision
+  pollingInterval:  30                                      # Optional. Default: 30 seconds
+  cooldownPeriod:   30                                      # Optional. Default: 300 seconds
+  initialCooldownPeriod:  60                                # Optional. Default: 0 seconds
+  minReplicaCount:  1                                       # Optional. Default: 0
+  maxReplicaCount:  10                                      # Optional. Default: 100
+  fallback:                                                 # Optional. Section to specify fallback options
+    failureThreshold: 3                                     # Mandatory if fallback section is included
+    replicas: 1                                             # Mandatory if fallback section is included
+  advanced:                                                 # Optional. Section to specify advanced options
+    restoreToOriginalReplicaCount: true                     # Optional. Default: false
+  triggers:
+  - type: prometheus
+    metricType: AverageValue                                # 使用average value 来计算ingress request 总数/deployment pod 的平均值
+    metadata:
+      serverAddress: https://netvue-prometheus-prod-c8gvhkcsdsdbhdf2.eastus2.prometheus.monitor.azure.com
+      threshold: '2'
+      #activationThreshold: "0"
+      query: sum(rate(nginx_ingress_controller_requests{ingress="birdfy-vision-ingress",namespace="birdfy-vision-namespace"}[2m]))      
+    authenticationRef:
+      kind: TriggerAuthentication
+      name: azure-monitor-workspace-auth
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-index-html
+  namespace: birdfy-vision-namespace
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>VLLM Simple Interface</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        h1 {
+          color: #333;
+          text-align: center;
+        }
+        .container {
+          border: 1px solid #ddd;
+          padding: 20px;
+          border-radius: 5px;
+        }
+        textarea {
+          width: 100%;
+          height: 100px;
+          padding: 10px;
+          margin-bottom: 10px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+        }
+        button {
+          padding: 10px 15px;
+          background-color: #4CAF50;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+        }
+        button:hover {
+          background-color: #45a049;
+        }
+        #response {
+          margin-top: 20px;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+          white-space: pre-wrap;
+          min-height: 100px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>VLLM Demo Interface</h1>
+      <div class="container">
+        <h3>Enter your prompt:</h3>
+        <textarea id="prompt"></textarea>
+        <button id="send">Send</button>
+        <h3>Response:</h3>
+        <div id="response"></div>
+      </div>
+      <script>
+        document.getElementById('send').addEventListener('click', async () => {
+          const prompt = document.getElementById('prompt').value;
+          const response = document.getElementById('response');
+          
+          if (!prompt.trim()) {
+            response.textContent = 'Please enter a prompt';
+            return;
+          }
+          
+          response.textContent = 'Thinking...';
+          
+          try {
+            const result = await fetch('/v1/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                prompt: prompt,
+                max_tokens: 100,
+                temperature: 0.7
+              })
+            });
+            
+            const data = await result.json();
+            
+            if (data.choices && data.choices.length > 0) {
+              response.textContent = data.choices[0].text;
+            } else {
+              response.textContent = JSON.stringify(data, null, 2);
+            }
+          } catch (error) {
+            response.textContent = `Error: ${error.message}`;
+          }
+        });
+      </script>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-ui
+  namespace: birdfy-vision-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-ui
+  template:
+    metadata:
+      labels:
+        app: vllm-ui
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+      volumes:
+      - name: html
+        configMap:
+          name: vllm-index-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-ui
+  namespace: birdfy-vision-namespace
+spec:
+  selector:
+    app: vllm-ui
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+# 更新现有 Ingress 的配置
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "birdfy-vision-ingress"
+  namespace: "birdfy-vision-namespace"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx-public
+  rules:
+    - host: "demo.ingress.zzzdev666.com"
+      http:
+        paths:
+          - path: /v1(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: "birdfy-vision"
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: "vllm-ui"
+                port:
+                  number: 80

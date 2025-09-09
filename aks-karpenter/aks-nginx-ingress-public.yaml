@@ -1,0 +1,19 @@
+---
+apiVersion: approuting.kubernetes.azure.com/v1alpha1
+kind: NginxIngressController
+metadata:
+  name: nginx-public
+  namespace: app-routing-system
+spec:
+  ingressClassName: nginx-public
+  controllerNamePrefix: nginx-public
+  loadBalancerAnnotations: 
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  # we enable autoscaling for the nginx ingress controller 
+  # rapid scales quickly for sudden spikes, 
+  # steady favors cost-effectiveness 
+  # balanced is a mix.
+  scaling:
+    minReplicas: 2
+    maxReplicas: 10
+    threshold: balanced

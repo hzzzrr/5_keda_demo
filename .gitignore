@@ -1,0 +1,36 @@
+# Terraform files
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+
+# Kubernetes config
+kubeconfig*
+
+# Azure credentials
+.azure/
+*.tfbackend
+*.tfvar
+
+# Local environment files
+.env
+*.local
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+#other
+*.drawio
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

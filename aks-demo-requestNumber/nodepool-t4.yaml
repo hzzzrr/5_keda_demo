@@ -1,0 +1,68 @@
+---
+apiVersion: karpenter.azure.com/v1beta1
+kind: AKSNodeClass
+metadata:
+  annotations:
+    kubernetes.io/description: T4 GPU nodes running Ubuntu2204 nodes
+  name: gpu-t4
+spec:
+  imageFamily: Ubuntu2204
+  maxPods: 35
+  #imageVersion: 202506.03.0
+  osDiskSizeGB: 64
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  annotations:
+    kubernetes.io/description: T4 GPU nodes running Ubuntu2204 nodes
+  name: gpu-t4
+spec:
+  disruption:
+    budgets:
+    - nodes: 30%
+    consolidateAfter: 0s
+    consolidationPolicy: WhenEmptyOrUnderutilized
+  limits:
+    cpu: "2000"
+  template:
+    metadata:
+      labels:
+        kubernetes.azure.com/ebpf-dataplane: cilium
+        nodepool/netvue: "gpu-t4"
+    spec:
+      expireAfter: Never
+      nodeClassRef:
+        group: karpenter.azure.com
+        kind: AKSNodeClass
+        name: gpu-t4
+      requirements:
+      - key: kubernetes.io/arch
+        operator: In
+        values:
+        - amd64
+      - key: kubernetes.io/os
+        operator: In
+        values:
+        - linux
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values:
+        - spot
+        - on-demand
+#      - key: karpenter.azure.com/sku-cpu
+#        operator: In
+#        values:
+#        - "8"
+      - key: karpenter.azure.com/sku-gpu-name
+        operator: In
+        values:
+        - T4
+      - key: karpenter.azure.com/sku-gpu-count
+        operator: In
+        values:
+        - "1"
+      startupTaints:
+      - effect: NoExecute
+        key: node.cilium.io/agent-not-ready
+        value: "true"

@@ -1,0 +1,14 @@
+---
+# make name space exists before we create ServiceAccount
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netvue-admin-worker-namespace
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    azure.workload.identity/client-id: "432037b7-1bda-45c0-a4b3-fad2adf0cfde"
+  name: "workload-identity"
+  namespace: "netvue-admin-worker-namespace"
